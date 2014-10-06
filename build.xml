@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!--
+ Copyright 2006 Sun Microsystems, Inc. All rights reserved.
+ Use is subject to license terms.
+-->
+<!DOCTYPE project [ <!ENTITY include SYSTEM "../../../common-ant.xml"> ]>
+
+<!-- ======================================================= -->
+<!-- Sun Java System Application Server Sample Application build xml -->
+<!-- ======================================================= -->
+
+<project name="bookstore" default="core" basedir=".">
+
+  <property name="sample.home" value="../../../"/>
+  
+  <!-- ======================================================= -->
+  <!--          App name-dependent settings.                   -->
+  <!-- ======================================================= -->
+
+  <property name="binary.name" value="bookstore"/>
+  <property name="application.type.war" value="true"/>
+
+  <!-- ======================================================= -->
+  <!--         Package directory structures of interest.       -->
+  <!-- ======================================================= -->
+
+  <property name="war.pkg" value="samples/webapps/bookstore"/>
+ 
+  <!-- ======================================================= -->
+  <!--            Java Doc properties .                        -->
+  <!-- ======================================================= -->
+  
+  <property name="sample.name" value="bookstore"/>
+  <property name="javadoc.pkgnames" value="samples.webapps.bookstore.*" />
+
+  <!-- ======================================================= -->
+  <!--            Xml files properties .                       -->
+  <!-- ======================================================= -->
+  
+  <!-- ======================================================= -->
+  <!--                Include common.xml                       -->
+  <!-- ======================================================= -->
+
+  <property name="db.user" value="BOOKSTORE"/> 
+  <property name="db.pwd" value="BOOKSTORE"/>
+  &include;
+
+  <!-- ======================================================= -->
+  <!--            Pointbase properties .                       -->
+  <!-- ======================================================= -->
+
+  <property name="conpool.name"       value="bookstore-pool" />
+  <property name="jdbc.resource.name" value="jdbc/BookDB" />
+  <property name="sql.dotted.deploy.filename" value=".bookstore.sql" />
+  <property name="sql.dotted.undeploy.filename" value=".drop-bookstore.sql" />
+  <property name="restype" value="javax.sql.DataSource" />
+ 
+  <!-- ========================================== -->
+  <!--     Create tables for Oracle DB            -->
+  <!-- ========================================== -->
+
+  <!--  Configure the oracle database using Inet driver -->
+  <target name="init.oracleInet" if="usingOracleInet">
+    <echo message="Configure the oracle database using Inet driver."/>         
+      <antcall target="common.configure.db" >
+        <param name="db.user" value="${oracleInet.user}"/>
+        <param name="db.pwd" value="${oracleInet.passwd}"/>
+        <param name="transaction.src" value="${basedir}/../../common/sql/${oracleInet.sql.location}/${oracleInet.dbvendorname}.createUser.sql"/>
+      </antcall>                                                                                                                                              
+  </target>
+  
+  <target name="select_derby_user_password" if="usingDerby">
+    <property name="db.user"  value="derbypublic"/>
+    <property name="db.pwd"   value="derbypublic"/>
+  </target>
+  
+  <target name="select_derbyEmbedded_user_password" if="usingDerbyEmbedded">
+    <property name="db.user"  value="derbypublic"/>
+    <property name="db.pwd"   value="derbypublic"/>
+  </target>
+
+  <target name="select_pointbase_user_password" if="usingPointbase">
+    <property name="db.user"  value="BOOKSTORE"/>
+    <property name="db.pwd"   value="BOOKSTORE"/>
+  </target>
+          
+  <target name="select_db_file" depends="select_db_file_common,select_pointbase_user_password,select_derby_user_password,select_derbyEmbedded_user_password"/>
+  
+  <!-- Create the CMP tables if they will not be created by the appserver at deploy time.-->
+   <target name="local.configure.db" depends="select_db_file">
+        <echo message="Calling common to create the tables if they will not be created by the appserver at deploy time."/>
+        <antcall target="common.configure.db" >
+          <param name="transaction.src" value="${db.file}${sql.dotted.deploy.filename}" />
+        </antcall>        
+  </target>
+                                                                                                                                                             
+   <!-- Delete the CMP tables at undeploy time.-->
+   <target name="local.unconfigure.db" depends="select_db_file">
+        <echo message="Calling common to remove the tables at undeploy time."/>
+        <antcall target="common.unconfigure.db" >
+          <param name="transaction.src" value="${db.file}${sql.dotted.undeploy.filename}" />
+        </antcall>
+  </target>
+           
+  <target name="setup" depends="check_db,deploy_jdbc_resource_common, init.oracleInet"/>
+  <target name="unsetup" depends="check_db,delete-jdbc-resource_common, delete-jdbc-connection-pool_common"/> 
+  <target name="sql" depends="sql_common"/>
+ 
+  <!-- ======================================================= -->
+  <!--		Tagets to build and deploy sample application  -->
+  <!-- ======================================================= -->
+  <target name="core"     depends="init_common,compile_common,create_war_common"/>
+  <target name="deploy"   depends="select_db_file, select_binary_common, setup, local.configure.db, deploy_common" />  
+  <target name="undeploy" depends="init_common, local.unconfigure.db, undeploy_common, unsetup"/>
+
+  <target name="clean"    depends="clean_common"/> 
+  <target name="javadocs" depends="javadocs_common"/>
+  <target name="verify"   depends="select_binary_common,verify_common"/>
+  <target name="all"      depends="core,javadocs,verify,deploy"/>
+
+</project>
